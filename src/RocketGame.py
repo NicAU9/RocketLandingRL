@@ -22,15 +22,18 @@ clock = pygame.time.Clock()
 class Rocket:
     def __init__(self, state):
         # state: ['x', 'y', 'vx', 'vy', 'theta', 'w']
-        # Cmd: ['Trust', 'delta']
+        # Cmd: ['Thrust', 'delta']
         self.width = 20  
         self.height = 60
 
         # State Init
         self.x, self.y, self.vx, self.vy, self.theta, self.w = state
 
-        self.truster_angle = 0
+        # Cmd Init
+        self.thruster_angle = 0
         self.thrust = 0
+
+        # Thrust position from direct kinemtatic
         self.thrust_x = self.x + np.sin(np.radians(self.theta)) * self.height/2
         self.thrust_y = self.y + np.cos(np.radians(self.theta)) * -self.height/2
 
@@ -44,12 +47,12 @@ class Rocket:
     def update_state(self, cmd):
         T, delta = np.array(cmd)
 
-        self.truster_angle = self.theta - delta
+        self.thruster_angle = self.theta - delta
         self.thrust = T
 
         # Forces applied by thrust
-        Fx = np.sin(np.radians(self.truster_angle)) * T
-        Fy = np.cos(np.radians(self.truster_angle)) * T
+        Fx = np.sin(np.radians(self.thruster_angle)) * T
+        Fy = np.cos(np.radians(self.thruster_angle)) * T
 
         # Acceleration from thrust
         ax = Fx / self.mass
@@ -64,7 +67,7 @@ class Rocket:
         self.x += self.vx
         self.y += self.vy
 
-        # Angular acceleration due to thrust torque
+        # Angular acceleration due to thrust
         self.thrust_x = self.x + np.sin(np.radians(self.theta)) * -self.height/2
         self.thrust_y = self.y + np.cos(np.radians(self.theta)) * self.height/2
 
@@ -80,8 +83,6 @@ class Rocket:
         # Update angle
         self.theta += self.w
 
-        print(self.truster_angle)
-
 
     def draw(self):
         # Rocket
@@ -93,8 +94,8 @@ class Rocket:
 
         # Trust Line
         thrust_length = self.thrust * 50
-        thrust_x = self.thrust_x - thrust_length * np.sin(np.radians(self.truster_angle))
-        thrust_y = self.thrust_y + thrust_length * np.cos(np.radians(self.truster_angle))
+        thrust_x = self.thrust_x - thrust_length * np.sin(np.radians(self.thruster_angle))
+        thrust_y = self.thrust_y + thrust_length * np.cos(np.radians(self.thruster_angle))
 
         pygame.draw.line(screen, (255, 0, 0), (self.thrust_x, self.thrust_y), (thrust_x, thrust_y), 3)
 
