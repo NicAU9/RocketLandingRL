@@ -8,12 +8,13 @@ WIDTH, HEIGHT = 800, 600
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
-gravity = 0.5  
+gravity = 0.5 
 mass = 1
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Rocket Landing Game")
 clock = pygame.time.Clock()
+fps = 30
 
 class Rocket:
     def __init__(self, state):
@@ -26,15 +27,15 @@ class Rocket:
         self.height = 60
 
         # State Init
-        self.x, self.y, self.vx, self.vy, self.theta, self.w = state
+        self.state = state
 
         # Cmd Init
         self.thruster_angle = 0
         self.thrust = 0
 
         # Thrust position from direct kinematic
-        self.thrust_x = self.x + np.sin(np.radians(self.theta)) * self.height / 2
-        self.thrust_y = self.y + np.cos(np.radians(self.theta)) * -self.height / 2
+        self.thrust_x = self.state[0] + np.sin(np.radians(self.state[4])) * self.height / 2
+        self.thrust_y = self.state[1] + np.cos(np.radians(self.state[4])) * -self.height / 2
 
         # Kinematic params
         self.mass = mass
@@ -43,10 +44,12 @@ class Rocket:
         
         self.thrust_on = False
 
-    def update_state(self, cmd):        
+    def update_state(self, cmd):
+        dt = 1/fps
+        x, y, vx, vy, theta, w = self.state      
         T, delta = np.array(cmd)
 
-        self.thruster_angle = self.theta - delta
+        self.thruster_angle = theta - delta
         self.thrust = T
 
         # Forces applied by thrust
@@ -59,32 +62,39 @@ class Rocket:
 
         ## Update linear states
         # Update speed
-        self.vx += ax
-        self.vy += ay
+        vx += ax * dt  * 30
+        vy += ay * dt * 30
 
         # Update position
-        self.x += self.vx
-        self.y += self.vy
+        x += vx * dt * 30
+        y += vy * dt * 30
 
         # Angular acceleration due to thrust
-        self.thrust_x = self.x + np.sin(np.radians(self.theta)) * -self.height / 2
-        self.thrust_y = self.y + np.cos(np.radians(self.theta)) * self.height / 2
+        self.thrust_x = x + np.sin(np.radians(theta)) * -self.height / 2
+        self.thrust_y = y + np.cos(np.radians(theta)) * self.height / 2
 
-        lever_arm_x = self.thrust_x - self.x
-        lever_arm_y = self.thrust_y - self.y
+        lever_arm_x = self.thrust_x - x
+        lever_arm_y = self.thrust_y - y
 
         alpha = (lever_arm_x * Fy + lever_arm_y * Fx) / self.I
 
         ## Update angular states
         # Update speed
-        self.w += alpha
+        w += alpha * dt * 30
 
         # Update angle
-        self.theta += self.w
+        theta += w * dt * 30
 
-    def draw(self):
-        rotated_image = pygame.transform.rotate(self.image, -self.theta)
-        new_rect = rotated_image.get_rect(center=(self.x, self.y))
+        self.state = np.array([x, y, vx, vy, theta, w])
+
+    def get_state(self):
+        return self.state
+
+    def draw(self, screen):
+        x, y, _, _, theta, _ = self.state
+
+        rotated_image = pygame.transform.rotate(self.image, -theta)
+        new_rect = rotated_image.get_rect(center=(x, y))
         screen.blit(rotated_image, new_rect.topleft)
 
         thrust_length = self.thrust * 50
@@ -93,7 +103,9 @@ class Rocket:
 
         pygame.draw.line(screen, (255, 0, 0), (self.thrust_x, self.thrust_y), (thrust_x, thrust_y), 3)
 
-    def check_collision(self):
+    def check_collision(self, screen):
+        x, y, vx, vy, theta, _ = self.state
+
         # Floor
         floor_y = HEIGHT - 20
         pygame.draw.rect(screen, (139, 69, 19), (0, floor_y, WIDTH, 20))  # Brown-colored floor
@@ -103,12 +115,12 @@ class Rocket:
         pygame.draw.rect(screen, (0, 255, 0), (target_x, target_y, target_width, target_height))
 
         # Ground collision
-        if self.y + self.height / 2  >= floor_y:
-            self.y = floor_y - self.height / 2
+        if y + self.height / 2  >= floor_y:
+            y = floor_y - self.height / 2
             # self.vy = 0
             # self.vx *= 0.9
             
-            if (target_x <= self.x <= target_x + target_width) and abs(self.theta) < 5 and abs(self.vx) < 2 and abs(self.vy) < 5:
+            if (target_x <= x <= target_x + target_width) and abs(theta) < 5 and abs(vx) < 5 and abs(vy) < 5:
                 return "win"  
             else:
                 return "lose"  
@@ -166,12 +178,12 @@ while running:
 
     rocket.update_state(cmd)
 
-    game_state = rocket.check_collision()
+    game_state = rocket.check_collision(screen)
 
-    rocket.draw()
+    rocket.draw(screen)
 
     pygame.display.flip()
-    clock.tick(30)
+    clock.tick(fps)
 
 pygame.quit()
 sys.exit()
